@@ -1,5 +1,7 @@
 #include "MTAccessPoint.h"
 
+#include "SPIFFS.h"
+
 MTAccessPoint::MTAccessPoint(const char *ssid, const char *password, int port)
 {
     mSsid = ssid;
@@ -17,9 +19,12 @@ void MTAccessPoint::startBroadcasting()
 
     this->mAsyncWebServer->begin();
 
+    this->registerSPIFFSRoutes();
     this->registerStatusRoute();
 
     mIsEnabled = true;
+
+    SPIFFS.begin();
 
     Serial.print("Local IP Address: ");
     Serial.println(this->getIpAddress());
@@ -27,15 +32,17 @@ void MTAccessPoint::startBroadcasting()
 
 void MTAccessPoint::stopBroadcasting()
 {
-    WiFi.enableAP(false);
-
     mIsEnabled = false;
+
+    WiFi.enableAP(false);
+    this->mAsyncWebServer->end();
+    SPIFFS.end();
 }
 
 bool MTAccessPoint::isEnabled()
 {
     return mIsEnabled;
-}
+} 
 
 String MTAccessPoint::getIpAddress()
 {
@@ -46,6 +53,24 @@ String MTAccessPoint::getIpAddress()
     }
 
     return "";
+}
+
+void MTAccessPoint::registerSPIFFSRoutes()
+{
+    mAsyncWebServer->on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send(SPIFFS, "index.html", String(), false);
+    });
+
+    mAsyncWebServer->on("/bulma-0.9.0-min.css", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send(SPIFFS, "bulma-0.9.0-min.css", "text/css");
+    });
+
+    mAsyncWebServer->onNotFound([](AsyncWebServerRequest *request) {
+        AsyncWebServerResponse *response = request->beginResponse(SPIFFS, "/not-found.html", "text/html");
+        response->setCode(404);
+
+        request->send(response);
+    });
 }
 
 void MTAccessPoint::registerStatusRoute()

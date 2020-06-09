@@ -25,6 +25,7 @@ public:
 
     String getIpAddress();
 
+    void registerSPIFFSRoutes();
     void registerStatusRoute();
 };
 
